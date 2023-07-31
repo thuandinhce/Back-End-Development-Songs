@@ -51,3 +51,91 @@ def parse_json(data):
 ######################################################################
 # INSERT CODE HERE
 ######################################################################
+
+######################################################################
+# RETURN HEALTH OF THE APP
+######################################################################
+
+
+@app.route("/health")
+def health():
+    return jsonify(dict(status="OK")), 200
+
+######################################################################
+# COUNT THE NUMBER OF SONG
+######################################################################
+
+
+@app.route("/count")
+def count():
+    """return length of data"""
+    count = db.songs.count_documents({})
+    return {"count": count}, 200
+
+
+######################################################################
+# Implement the GET /song endpoint
+######################################################################
+
+@app.route("/song", methods=["GET"])
+def songs():
+    # docker run -d --name mongodb-test -e MONGO_INITDB_ROOT_USERNAME=user
+    # -e MONGO_INITDB_ROOT_PASSWORD=password -e MONGO_INITDB_DATABASE=collection mongo
+    results = list(db.songs.find({}))
+    return {"songs": parse_json(results)}, 200
+
+
+######################################################################
+# Implement the GET /song/id endpoint
+######################################################################
+
+@app.route("/song/<int:id>", methods=["GET"])
+def get_song_by_id(id):
+    results = db.songs.find_one({"id": id})
+    if results:
+        return parse_json(results), 200
+    return {"message": f"song with id {id} not found"}, 404
+
+
+######################################################################
+# Implement the POST /song endpoint
+######################################################################
+
+@app.route("/song", methods=["POST"])
+def create_song():
+    song = request.json
+    check_id = db.songs.find_one({"id": song["id"]})
+
+    if check_id:
+        return {"Message": f"song with id {song['id']} already present"}
+    insert_id: InsertOneResult = db.songs.insert_one(song)
+    return {"inserted id": parse_json(insert_id.inserted_id)}, 201
+ 
+######################################################################
+# Implement the PUT /song endpoint
+######################################################################
+
+@app.route("/song/<int:id>", methods=["PUT"])
+def update_song(id):
+    song = request.json
+    check_id = db.songs.find_one({"id": id})
+    if check_id:
+        results = db.songs.update_one({"id": id}, {"$set": song})
+        if results.modified_count == 0:
+            return {"message": "song found, but nothing updated"}, 200
+        else:
+            return parse_json(db.songs.find_one({"id": id})), 201
+    return {"message": "song not found"}, 404
+
+######################################################################
+# Implement the DELETE /song endpoint
+######################################################################
+
+@app.route("/song/<int:id>", methods=["DELETE"])
+def delete_song(id):
+
+    result = db.songs.delete_one({"id": id})
+    if result.deleted_count == 0:
+        return {"message": "song not found"}, 404
+    else:
+        return "", 204
